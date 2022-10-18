@@ -17,6 +17,8 @@ type Task struct {
 	Deps util.Set
 	// TopoDeps are dependencies across packages within the same topological graph (e.g. parent `build` -> child `build`) */
 	TopoDeps util.Set
+	// Persistent is whether this task is persistent or not. We need this information to validate TopoDeps graph
+	Persistent bool
 }
 
 type Visitor = func(taskID string) error
@@ -127,6 +129,7 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 					// *are* required to have a definition.
 					continue
 				}
+
 				traversalQueue = append(traversalQueue, taskID)
 			}
 		}
@@ -135,6 +138,8 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 	visited := make(util.Set)
 
 	for len(traversalQueue) > 0 {
+		// take the first task and remove it from the array
+		// TODO: Why don't we use for...range traversalQueue instead?
 		taskID := traversalQueue[0]
 		traversalQueue = traversalQueue[1:]
 
@@ -142,10 +147,14 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 		if pkg == util.RootPkgName && !e.rootEnabledTasks.Includes(taskName) {
 			return fmt.Errorf("%v needs an entry in turbo.json before it can be depended on because it is a task run from the root package", taskID)
 		}
+
 		task, err := e.getTaskDefinition(pkg, taskName, taskID)
+		fmt.Printf("[debug] -------------------\n")
+		fmt.Printf("[debug] task: %#v (persistent: %#v)\n", task.Name, task.Persistent)
 		if err != nil {
 			return err
 		}
+
 		if !visited.Includes(taskID) {
 			visited.Add(taskID)
 			deps := task.Deps
@@ -166,8 +175,11 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 			}
 
 			toTaskID := taskID
+
+			// If there
 			hasTopoDeps := task.TopoDeps.Len() > 0 && e.TopologicGraph.DownEdges(pkg).Len() > 0
 			hasDeps := deps.Len() > 0
+
 			hasPackageTaskDeps := false
 			if _, ok := packageTasksDepsMap[toTaskID]; ok {
 				hasPackageTaskDeps = true
@@ -179,6 +191,17 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 					// add task dep from all the package deps within repo
 					for depPkg := range depPkgs {
 						fromTaskID := util.GetTaskId(depPkg, from)
+						_, fromTaskName := util.GetPackageTaskFromId(fromTaskID)
+
+						fromTask, err := e.getTaskDefinition(depPkg.(string), fromTaskName, fromTaskID)
+						if err != nil {
+							return fmt.Errorf("error fetching task definition for %#v", fromTaskID)
+						}
+
+						if fromTask.Persistent {
+							fmt.Printf("%#v is a persistent task, so it cannot depend on %#v, which is also a persistent task\n", toTaskID, fromTaskID)
+						}
+
 						e.TaskGraph.Add(fromTaskID)
 						e.TaskGraph.Add(toTaskID)
 						e.TaskGraph.Connect(dag.BasicEdge(toTaskID, fromTaskID))

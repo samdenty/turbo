@@ -31,5 +31,6 @@ func ValidateGraph(graph *dag.AcyclicGraph) error {
 			return fmt.Errorf("%s depends on itself", e.Source())
 		}
 	}
+
 	return nil
 }

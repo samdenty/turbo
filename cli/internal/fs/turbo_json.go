@@ -50,12 +50,16 @@ type RemoteCacheOptions struct {
 }
 
 type rawTask struct {
-	Outputs    *[]string           `json:"outputs"`
+	// We can't use omitempty for Outputs, because it will
+	// always unmarshal into an empty array, which means something different from nil.
+	Outputs *[]string `json:"outputs"`
+
 	Cache      *bool               `json:"cache,omitempty"`
 	DependsOn  []string            `json:"dependsOn,omitempty"`
 	Inputs     []string            `json:"inputs,omitempty"`
 	OutputMode util.TaskOutputMode `json:"outputMode,omitempty"`
 	Env        []string            `json:"env,omitempty"`
+	Persistent bool                `json:"persistent,omitempty"`
 }
 
 // Pipeline is a struct for deserializing .pipeline in configFile
@@ -70,6 +74,7 @@ type TaskDefinition struct {
 	TaskDependencies        []string
 	Inputs                  []string
 	OutputMode              util.TaskOutputMode
+	Persistent              bool
 }
 
 // LoadTurboConfig loads, or optionally, synthesizes a TurboJSON instance
@@ -214,8 +219,7 @@ func (c *TaskDefinition) UnmarshalJSON(data []byte) error {
 
 	// We actually need a nil value to be able to unmarshal the json
 	// because we interpret the omission of outputs to be different
-	// from an empty array. We can't use omitempty because it will
-	// always unmarshal into an empty array which is not what we want.
+	// from an empty array.
 	if task.Outputs != nil {
 		var inclusions []string
 		var exclusions []string
@@ -276,6 +280,7 @@ func (c *TaskDefinition) UnmarshalJSON(data []byte) error {
 	// hash the resulting files and sort that instead
 	c.Inputs = task.Inputs
 	c.OutputMode = task.OutputMode
+	c.Persistent = task.Persistent
 	return nil
 }
 
