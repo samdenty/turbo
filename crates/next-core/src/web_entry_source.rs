@@ -5,7 +5,7 @@ use turbo_tasks_fs::FileSystemPathVc;
 use turbopack::ecmascript::EcmascriptModuleAssetVc;
 use turbopack_core::{
     chunk::{ChunkGroupVc, ChunkableAssetVc},
-    resolve::{origin::PlainResolveOriginVc, parse::RequestVc},
+    resolve::{handle_resolve_error, origin::PlainResolveOriginVc, parse::RequestVc},
 };
 use turbopack_dev_server::{
     html::DevHtmlAssetVc,
@@ -42,12 +42,17 @@ pub async fn create_web_entry_source(
     let entries = entry_requests
         .into_iter()
         .map(|request| async move {
-            Ok(origin
-                .resolve_asset(request, origin.resolve_options())
-                .primary_assets()
-                .await?
-                .first()
-                .copied())
+            let options = origin.resolve_options();
+            let resolve_result = handle_resolve_error(
+                origin.resolve_asset(request, options),
+                "next-dev entry",
+                origin,
+                request,
+                options,
+            )
+            .await?;
+
+            Ok(resolve_result.primary_assets().await?.first().copied())
         })
         .try_join()
         .await?;
