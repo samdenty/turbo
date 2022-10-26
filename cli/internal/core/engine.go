@@ -198,6 +198,8 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 							return fmt.Errorf("error fetching task definition for %#v", fromTaskID)
 						}
 
+						// ONLY LEAF NODES CAN BE PERSISTENT (but we don't need to check for that)
+						// TODO: Check that non-leaf nodes are not persistent.
 						if fromTask.Persistent {
 							fmt.Printf("%#v is a persistent task, so it cannot depend on %#v, which is also a persistent task\n", toTaskID, fromTaskID)
 						}
