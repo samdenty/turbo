@@ -68,8 +68,11 @@ func (e *Engine) Prepare(options *EngineExecutionOptions) error {
 	}
 
 	if err := e.generateTaskGraph(pkgs, tasks, options.TasksOnly); err != nil {
+		fmt.Printf("[debug] DID NOT FINISH GENERATE TASK GRAPH\n")
 		return err
 	}
+
+	fmt.Printf("[debug] FINISHED GENERATE TASK GRAPH\n")
 
 	return nil
 }
@@ -118,6 +121,8 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 	packageTasksDepsMap := getPackageTaskDepsMap(e.PackageTaskDeps)
 
 	traversalQueue := []string{}
+
+	fmt.Printf("[debug] LOG 1\n")
 	for _, pkg := range pkgs {
 		isRootPkg := pkg == util.RootPkgName
 		for _, taskName := range taskNames {
@@ -135,12 +140,14 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 		}
 	}
 
+	fmt.Printf("[debug] after range pkgs\n")
 	visited := make(util.Set)
 
+	fmt.Printf("[debug] start traversalQueue\n")
 	for len(traversalQueue) > 0 {
-		// take the first task and remove it from the array
-		// TODO: Why don't we use for...range traversalQueue instead?
+		// inside this loop, things get appended to traversalQueue
 		taskID := traversalQueue[0]
+		fmt.Printf("[debug] ---------- %#v ---------\n", taskID)
 		traversalQueue = traversalQueue[1:]
 
 		pkg, taskName := util.GetPackageTaskFromId(taskID)
@@ -149,8 +156,8 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 		}
 
 		task, err := e.getTaskDefinition(pkg, taskName, taskID)
-		fmt.Printf("[debug] -------------------\n")
-		fmt.Printf("[debug] task: %#v (persistent: %#v)\n", task.Name, task.Persistent)
+		fmt.Printf("[debug] pkg: %#v, taskName: %#v (persistent: %#v)\n", pkg, task.Name, task.Persistent)
+
 		if err != nil {
 			return err
 		}
@@ -174,36 +181,44 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 				})
 			}
 
+			fmt.Printf("[debug] here 1\n")
 			toTaskID := taskID
 
 			// If there
 			hasTopoDeps := task.TopoDeps.Len() > 0 && e.TopologicGraph.DownEdges(pkg).Len() > 0
+			fmt.Printf("[debug] here 2\n")
 			hasDeps := deps.Len() > 0
 
 			hasPackageTaskDeps := false
 			if _, ok := packageTasksDepsMap[toTaskID]; ok {
 				hasPackageTaskDeps = true
 			}
+			fmt.Printf("[debug] here 3\n")
 
 			if hasTopoDeps {
 				depPkgs := e.TopologicGraph.DownEdges(pkg)
 				for _, from := range task.TopoDeps.UnsafeListOfStrings() {
 					// add task dep from all the package deps within repo
+					fmt.Printf("[debug]\ttopDeps from: %#v\n", from)
 					for depPkg := range depPkgs {
+						fmt.Printf("[debug]\t\tdepPkg %#v\n", depPkg)
 						fromTaskID := util.GetTaskId(depPkg, from)
+						fmt.Printf("[debug]\t\tfromTaskID: %#v\n", fromTaskID)
 						_, fromTaskName := util.GetPackageTaskFromId(fromTaskID)
+						fmt.Printf("[debug]\t\tfromTaskName: %#v\n", fromTaskName)
 
 						fromTask, err := e.getTaskDefinition(depPkg.(string), fromTaskName, fromTaskID)
 						if err != nil {
-							return fmt.Errorf("error fetching task definition for %#v", fromTaskID)
+							return fmt.Errorf("\terror fetching task definition for %#v", fromTaskID)
 						}
 
 						// ONLY LEAF NODES CAN BE PERSISTENT (but we don't need to check for that)
 						// TODO: Check that non-leaf nodes are not persistent.
 						if fromTask.Persistent {
-							fmt.Printf("%#v is a persistent task, so it cannot depend on %#v, which is also a persistent task\n", toTaskID, fromTaskID)
+							fmt.Printf("[debug]\t\t%#v is a persistent task, so it cannot depend on %#v, which is also a persistent task\n", toTaskID, fromTaskID)
 						}
 
+						fmt.Printf("[debug]\t\adding to taskgraph %#v\n", depPkg)
 						e.TaskGraph.Add(fromTaskID)
 						e.TaskGraph.Add(toTaskID)
 						e.TaskGraph.Connect(dag.BasicEdge(toTaskID, fromTaskID))
@@ -212,6 +227,7 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 				}
 			}
 
+			fmt.Printf("[debug] here 4 (after hasTopoDeps)\n")
 			if hasDeps {
 				for _, from := range deps.UnsafeListOfStrings() {
 					fromTaskID := util.GetTaskId(pkg, from)
@@ -221,7 +237,7 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 					traversalQueue = append(traversalQueue, fromTaskID)
 				}
 			}
-
+			fmt.Printf("[debug] after hasDeps)\n")
 			if hasPackageTaskDeps {
 				if pkgTaskDeps, ok := packageTasksDepsMap[toTaskID]; ok {
 					for _, fromTaskID := range pkgTaskDeps {
@@ -232,14 +248,18 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 					}
 				}
 			}
-
+			fmt.Printf("[debug] here 6 (after all has*)\n")
 			if !hasDeps && !hasTopoDeps && !hasPackageTaskDeps {
 				e.TaskGraph.Add(ROOT_NODE_NAME)
 				e.TaskGraph.Add(toTaskID)
 				e.TaskGraph.Connect(dag.BasicEdge(toTaskID, ROOT_NODE_NAME))
 			}
+
+			fmt.Printf("[debug] here 7 (after adding to %#v graphs)\n", taskID)
 		}
 	}
+
+	fmt.Printf("[debug] after traversalQueue\n")
 	return nil
 }
 
