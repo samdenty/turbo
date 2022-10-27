@@ -131,7 +131,7 @@ impl NextDevServerBuilder {
         let console_ui = Arc::new(ConsoleUi::new(log_options));
         let console_ui_to_dev_server = console_ui.clone();
 
-        let server = DevServer::listen(
+        DevServer::listen(
             turbo_tasks.clone(),
             move || {
                 source(
@@ -151,9 +151,7 @@ impl NextDevServerBuilder {
             )
                 .into(),
             console_ui_to_dev_server,
-        );
-
-        server
+        )
     }
 }
 
