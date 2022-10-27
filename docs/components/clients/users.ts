@@ -457,4 +457,16 @@ export const users: Array<TurboUser> = [
     infoLink: "https://agrotoken.io",
     pinned: true,
   },
+  {
+    caption: "Rocket.Chat",
+    image: "/images/logos/rocketchat.svg",
+    infoLink: "https://rocket.chat",
+    pinned: true,
+  },
+  {
+    caption: "Backpack",
+    image: "/images/logos/backpack.svg",
+    infoLink: "https://backpack.app",
+    pinned: true,
+  },
 ];
