@@ -515,8 +515,6 @@ func buildTaskGraphEngine(topoGraph *dag.AcyclicGraph, pipeline fs.Pipeline, rs 
 		return nil, err
 	}
 
-	fmt.Printf("[debug] .PREPARE() is done\n")
-
 	// TaskGraph is a DAG with string references, not the full pipeline.
 	// We need to do some validatio of the TaskGraph _while_ looking at the
 	// information in engine.pipeline, which has the Persistent field.

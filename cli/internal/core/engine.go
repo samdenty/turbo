@@ -139,10 +139,10 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 
 	visited := make(util.Set)
 
+	// Things get appended to traversalQueue inside this loop, so we use the len() check instead of range.
 	for len(traversalQueue) > 0 {
-		// inside this loop, things get appended to traversalQueue
+		// pop off the first item from the traversalQueue
 		taskID := traversalQueue[0]
-
 		traversalQueue = traversalQueue[1:]
 
 		pkg, taskName := util.GetPackageTaskFromId(taskID)
@@ -158,6 +158,7 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 
 		if !visited.Includes(taskID) {
 			visited.Add(taskID)
+
 			deps := task.Deps
 
 			if tasksOnly {
@@ -175,15 +176,11 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 				})
 			}
 
-			toTaskID := taskID
-
-			// If there
 			hasTopoDeps := task.TopoDeps.Len() > 0 && e.TopologicGraph.DownEdges(pkg).Len() > 0
-
 			hasDeps := deps.Len() > 0
 
 			hasPackageTaskDeps := false
-			if _, ok := packageTasksDepsMap[toTaskID]; ok {
+			if _, ok := packageTasksDepsMap[taskID]; ok {
 				hasPackageTaskDeps = true
 			}
 
@@ -193,9 +190,7 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 					// add task dep from all the package deps within repo
 
 					for depPkg := range depPkgs {
-
 						fromTaskID := util.GetTaskId(depPkg, from)
-
 						_, fromTaskName := util.GetPackageTaskFromId(fromTaskID)
 
 						fromTask, err := e.getTaskDefinition(depPkg.(string), fromTaskName, fromTaskID)
@@ -205,13 +200,13 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 
 						// ONLY LEAF NODES CAN BE PERSISTENT (but we don't need to check for that)
 						// TODO: Check that non-leaf nodes are not persistent.
-						if fromTask.Persistent {
-
+						if fromTask.Persistent && task.Persistent {
+							fmt.Printf("[debug] both nodes are persistent. fromTask: %#v, taskID: %#v \n", fromTaskID, taskID)
 						}
 
 						e.TaskGraph.Add(fromTaskID)
-						e.TaskGraph.Add(toTaskID)
-						e.TaskGraph.Connect(dag.BasicEdge(toTaskID, fromTaskID))
+						e.TaskGraph.Add(taskID)
+						e.TaskGraph.Connect(dag.BasicEdge(taskID, fromTaskID))
 						traversalQueue = append(traversalQueue, fromTaskID)
 					}
 				}
@@ -221,18 +216,18 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 				for _, from := range deps.UnsafeListOfStrings() {
 					fromTaskID := util.GetTaskId(pkg, from)
 					e.TaskGraph.Add(fromTaskID)
-					e.TaskGraph.Add(toTaskID)
-					e.TaskGraph.Connect(dag.BasicEdge(toTaskID, fromTaskID))
+					e.TaskGraph.Add(taskID)
+					e.TaskGraph.Connect(dag.BasicEdge(taskID, fromTaskID))
 					traversalQueue = append(traversalQueue, fromTaskID)
 				}
 			}
 
 			if hasPackageTaskDeps {
-				if pkgTaskDeps, ok := packageTasksDepsMap[toTaskID]; ok {
+				if pkgTaskDeps, ok := packageTasksDepsMap[taskID]; ok {
 					for _, fromTaskID := range pkgTaskDeps {
 						e.TaskGraph.Add(fromTaskID)
-						e.TaskGraph.Add(toTaskID)
-						e.TaskGraph.Connect(dag.BasicEdge(toTaskID, fromTaskID))
+						e.TaskGraph.Add(taskID)
+						e.TaskGraph.Connect(dag.BasicEdge(taskID, fromTaskID))
 						traversalQueue = append(traversalQueue, fromTaskID)
 					}
 				}
@@ -240,10 +235,9 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 
 			if !hasDeps && !hasTopoDeps && !hasPackageTaskDeps {
 				e.TaskGraph.Add(ROOT_NODE_NAME)
-				e.TaskGraph.Add(toTaskID)
-				e.TaskGraph.Connect(dag.BasicEdge(toTaskID, ROOT_NODE_NAME))
+				e.TaskGraph.Add(taskID)
+				e.TaskGraph.Connect(dag.BasicEdge(taskID, ROOT_NODE_NAME))
 			}
-
 		}
 	}
 
