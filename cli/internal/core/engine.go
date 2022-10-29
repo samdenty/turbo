@@ -190,13 +190,6 @@ func (e *Engine) generateTaskGraph(pkgs []string, taskNames []string, tasksOnly 
 					// add task dep from all the package deps within repo
 					for depPkg := range depPkgs {
 						fromTaskID := util.GetTaskId(depPkg, from)
-						_, fromTaskName := util.GetPackageTaskFromId(fromTaskID)
-
-						_, err := e.GetTaskDefinition(depPkg.(string), fromTaskName, fromTaskID)
-						if err != nil {
-							return fmt.Errorf("\terror fetching task definition for %#v", fromTaskID)
-						}
-
 						e.TaskGraph.Add(fromTaskID)
 						e.TaskGraph.Add(taskID)
 						e.TaskGraph.Connect(dag.BasicEdge(taskID, fromTaskID))
