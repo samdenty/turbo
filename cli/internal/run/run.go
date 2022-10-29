@@ -530,6 +530,7 @@ func buildTaskGraphEngine(topoGraph *dag.AcyclicGraph, pipeline fs.Pipeline, rs 
 	return engine, nil
 }
 
+// TODO: replace all the debug logs with actual debug logging.
 func validatePersistentTasks(engine *core.Engine) error {
 	// Check that only leaf nodes are persistent:true
 	for _, vertex := range engine.TaskGraph.Vertices() {
