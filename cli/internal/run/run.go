@@ -517,7 +517,7 @@ func buildTaskGraphEngine(topoGraph *dag.AcyclicGraph, pipeline fs.Pipeline, rs 
 
 	// Check for cycles in the DAG.
 	if err := util.ValidateGraph(engine.TaskGraph); err != nil {
-		return nil, fmt.Errorf("Cycles detected in graph")
+		return nil, fmt.Errorf("Invalid task dependency graph:\n%v", err)
 	}
 
 	// TaskGraph is a DAG with string references, not the full pipeline.
