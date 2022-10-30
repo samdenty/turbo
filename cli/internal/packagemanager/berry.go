@@ -2,7 +2,6 @@ package packagemanager
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/Masterminds/semver"
@@ -81,15 +80,8 @@ var nodejsBerry = PackageManager{
 			return false, nil
 		}
 
-		cmd := exec.Command("yarn", "--version")
-		cmd.Dir = projectDirectory.ToString()
-		out, err := cmd.Output()
-		if err != nil {
-			return false, fmt.Errorf("could not detect yarn version: %w", err)
-		}
-
 		// See if we're a match when we compare these two things.
-		matches, _ := packageManager.Matches(packageManager.Slug, string(out))
+		matches, _ := packageManager.Matches(packageManager.Slug, "1.22.19")
 
 		// Short-circuit, definitely not Berry because version number says we're Yarn.
 		if !matches {

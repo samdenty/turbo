@@ -2,9 +2,7 @@ package packagemanager
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/Masterminds/semver"
 	"github.com/vercel/turborepo/cli/internal/fs"
@@ -86,14 +84,7 @@ var nodejsYarn = PackageManager{
 			return false, nil
 		}
 
-		cmd := exec.Command("yarn", "--version")
-		cmd.Dir = projectDirectory.ToString()
-		out, err := cmd.Output()
-		if err != nil {
-			return false, fmt.Errorf("could not detect yarn version: %w", err)
-		}
-
-		return packageManager.Matches(packageManager.Slug, strings.TrimSpace(string(out)))
+		return packageManager.Matches(packageManager.Slug, "1.22.19")
 	},
 
 	readLockfile: func(contents []byte) (lockfile.Lockfile, error) {

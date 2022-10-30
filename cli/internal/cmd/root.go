@@ -14,7 +14,6 @@ import (
 	"github.com/vercel/turborepo/cli/internal/cmdutil"
 	"github.com/vercel/turborepo/cli/internal/daemon"
 	"github.com/vercel/turborepo/cli/internal/login"
-	"github.com/vercel/turborepo/cli/internal/process"
 	"github.com/vercel/turborepo/cli/internal/prune"
 	"github.com/vercel/turborepo/cli/internal/run"
 	"github.com/vercel/turborepo/cli/internal/signals"
@@ -61,10 +60,7 @@ func RunWithArgs(args []string, turboVersion string) int {
 	case <-doneCh:
 		// We finished whatever task we were running
 		signalWatcher.Close()
-		exitErr := &process.ChildExit{}
-		if errors.As(execErr, &exitErr) {
-			return exitErr.ExitCode
-		} else if execErr != nil {
+		if execErr != nil {
 			return 1
 		}
 		return 0

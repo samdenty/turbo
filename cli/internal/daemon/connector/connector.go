@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -359,18 +358,19 @@ func (c *Connector) waitForSocket() error {
 
 // startDaemon starts the daemon and returns the pid for the new process
 func (c *Connector) startDaemon() (int, error) {
-	args := []string{"daemon"}
-	if c.Opts.ServerTimeout != 0 {
-		args = append(args, fmt.Sprintf("--idle-time=%v", c.Opts.ServerTimeout.String()))
-	}
-	c.Logger.Debug(fmt.Sprintf("starting turbod binary %v", c.Bin))
-	cmd := exec.Command(c.Bin, args...)
-	// For the daemon to have its own process group id so that any attempts
-	// to kill it and its process tree don't kill this client.
-	cmd.SysProcAttr = getSysProcAttrs()
-	err := cmd.Start()
-	if err != nil {
-		return 0, err
-	}
-	return cmd.Process.Pid, nil
+	return 0, nil
+	// args := []string{"daemon"}
+	// if c.Opts.ServerTimeout != 0 {
+	// 	args = append(args, fmt.Sprintf("--idle-time=%v", c.Opts.ServerTimeout.String()))
+	// }
+	// c.Logger.Debug(fmt.Sprintf("starting turbod binary %v", c.Bin))
+	// cmd := exec.Command(c.Bin, args...)
+	// // For the daemon to have its own process group id so that any attempts
+	// // to kill it and its process tree don't kill this client.
+	// cmd.SysProcAttr = getSysProcAttrs()
+	// err := cmd.Start()
+	// if err != nil {
+	// 	return 0, err
+	// }
+	// return cmd.Process.Pid, nil
 }

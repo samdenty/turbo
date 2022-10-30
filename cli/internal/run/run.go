@@ -4,9 +4,7 @@ import (
 	gocontext "context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -28,11 +26,8 @@ import (
 	"github.com/vercel/turborepo/cli/internal/daemon"
 	"github.com/vercel/turborepo/cli/internal/daemonclient"
 	"github.com/vercel/turborepo/cli/internal/fs"
-	"github.com/vercel/turborepo/cli/internal/graphvisualizer"
-	"github.com/vercel/turborepo/cli/internal/logstreamer"
 	"github.com/vercel/turborepo/cli/internal/nodes"
 	"github.com/vercel/turborepo/cli/internal/packagemanager"
-	"github.com/vercel/turborepo/cli/internal/process"
 	"github.com/vercel/turborepo/cli/internal/runcache"
 	"github.com/vercel/turborepo/cli/internal/scm"
 	"github.com/vercel/turborepo/cli/internal/scope"
@@ -161,19 +156,19 @@ func configureRun(base *cmdutil.CmdBase, opts *Opts, signalWatcher *signals.Watc
 		opts.cacheOpts.SkipFilesystem = true
 	}
 
-	processes := process.NewManager(base.Logger.Named("processes"))
-	signalWatcher.AddOnClose(processes.Close)
+	// processes := process.NewManager(base.Logger.Named("processes"))
+	// signalWatcher.AddOnClose(processes.Close)
 	return &run{
-		base:      base,
-		opts:      opts,
-		processes: processes,
+		base: base,
+		opts: opts,
+		// processes: processes,
 	}
 }
 
 type run struct {
-	base      *cmdutil.CmdBase
-	opts      *Opts
-	processes *process.Manager
+	base *cmdutil.CmdBase
+	opts *Opts
+	// processes *process.Manager
 }
 
 func (r *run) run(ctx gocontext.Context, targets []string) error {
@@ -316,22 +311,7 @@ func (r *run) runOperation(ctx gocontext.Context, g *completeGraph, rs *runSpec,
 		}
 	}
 
-	if rs.Opts.runOpts.graphFile != "" || rs.Opts.runOpts.graphDot {
-		graph := engine.TaskGraph
-		if r.opts.runOpts.singlePackage {
-			graph = filterSinglePackageGraphForDisplay(engine.TaskGraph)
-		}
-		visualizer := graphvisualizer.New(r.base.RepoRoot, r.base.UI, graph)
-
-		if rs.Opts.runOpts.graphDot {
-			visualizer.RenderDotGraph()
-		} else {
-			err := visualizer.GenerateGraphFile(rs.Opts.runOpts.graphFile)
-			if err != nil {
-				return err
-			}
-		}
-	} else if rs.Opts.runOpts.dryRun {
+	if rs.Opts.runOpts.dryRun {
 		tasksRun, err := r.executeDryRun(ctx, engine, g, tracker, rs)
 		if err != nil {
 			return err
@@ -762,14 +742,14 @@ func (r *run) executeTasks(ctx gocontext.Context, g *completeGraph, rs *runSpec,
 	runCache := runcache.New(turboCache, r.base.RepoRoot, rs.Opts.runcacheOpts, colorCache)
 
 	ec := &execContext{
-		colorCache:      colorCache,
-		runState:        runState,
-		rs:              rs,
-		ui:              &cli.ConcurrentUi{Ui: r.base.UI},
-		runCache:        runCache,
-		logger:          r.base.Logger,
-		packageManager:  packageManager,
-		processes:       r.processes,
+		colorCache:     colorCache,
+		runState:       runState,
+		rs:             rs,
+		ui:             &cli.ConcurrentUi{Ui: r.base.UI},
+		runCache:       runCache,
+		logger:         r.base.Logger,
+		packageManager: packageManager,
+		// processes:       r.processes,
 		taskHashes:      hashes,
 		repoRoot:        r.base.RepoRoot,
 		isSinglePackage: r.opts.runOpts.singlePackage,
@@ -788,13 +768,9 @@ func (r *run) executeTasks(ctx gocontext.Context, g *completeGraph, rs *runSpec,
 
 	// Track if we saw any child with a non-zero exit code
 	exitCode := 0
-	exitCodeErr := &process.ChildExit{}
+	// exitCodeErr := &process.ChildExit{}
 	for _, err := range errs {
-		if errors.As(err, &exitCodeErr) {
-			if exitCodeErr.ExitCode > exitCode {
-				exitCode = exitCodeErr.ExitCode
-			}
-		} else if exitCode == 0 {
+		if exitCode == 0 {
 			// We hit some error, it shouldn't be exit code 0
 			exitCode = 1
 		}
@@ -803,11 +779,6 @@ func (r *run) executeTasks(ctx gocontext.Context, g *completeGraph, rs *runSpec,
 
 	if err := runState.Close(r.base.UI, rs.Opts.runOpts.profile); err != nil {
 		return errors.Wrap(err, "error with profiler")
-	}
-	if exitCode != 0 {
-		return &process.ChildExit{
-			ExitCode: exitCode,
-		}
 	}
 	return nil
 }
@@ -963,14 +934,14 @@ func validateTasks(pipeline fs.Pipeline, tasks []string) error {
 }
 
 type execContext struct {
-	colorCache      *colorcache.ColorCache
-	runState        *RunState
-	rs              *runSpec
-	ui              cli.Ui
-	runCache        *runcache.RunCache
-	logger          hclog.Logger
-	packageManager  *packagemanager.PackageManager
-	processes       *process.Manager
+	colorCache     *colorcache.ColorCache
+	runState       *RunState
+	rs             *runSpec
+	ui             cli.Ui
+	runCache       *runcache.RunCache
+	logger         hclog.Logger
+	packageManager *packagemanager.PackageManager
+	// processes       *process.Manager
 	taskHashes      *taskhash.Tracker
 	repoRoot        turbopath.AbsoluteSystemPath
 	isSinglePackage bool
@@ -1041,90 +1012,90 @@ func (ec *execContext) exec(ctx gocontext.Context, packageTask *nodes.PackageTas
 		argsactual = append(argsactual, passThroughArgs...)
 	}
 
-	cmd := exec.Command(ec.packageManager.Command, argsactual...)
-	// TODO: repoRoot probably should be AbsoluteSystemPath, but it's Join method
-	// takes a RelativeSystemPath. Resolve during migration from turbopath.AbsoluteSystemPath to
-	// AbsoluteSystemPath
-	cmd.Dir = ec.repoRoot.UntypedJoin(packageTask.Pkg.Dir.ToStringDuringMigration()).ToString()
-	envs := fmt.Sprintf("TURBO_HASH=%v", hash)
-	cmd.Env = append(os.Environ(), envs)
+	// cmd := exec.Command(ec.packageManager.Command, argsactual...)
+	// // TODO: repoRoot probably should be AbsoluteSystemPath, but it's Join method
+	// // takes a RelativeSystemPath. Resolve during migration from turbopath.AbsoluteSystemPath to
+	// // AbsoluteSystemPath
+	// cmd.Dir = ec.repoRoot.UntypedJoin(packageTask.Pkg.Dir.ToStringDuringMigration()).ToString()
+	// envs := fmt.Sprintf("TURBO_HASH=%v", hash)
+	// cmd.Env = append(os.Environ(), envs)
 
 	// Setup stdout/stderr
 	// If we are not caching anything, then we don't need to write logs to disk
 	// be careful about this conditional given the default of cache = true
-	writer, err := taskCache.OutputWriter(prettyPrefix)
-	if err != nil {
-		tracer(TargetBuildFailed, err)
-		ec.logError(progressLogger, prettyPrefix, err)
-		if !ec.rs.Opts.runOpts.continueOnError {
-			os.Exit(1)
-		}
-	}
+	// writer, err := taskCache.OutputWriter(prettyPrefix)
+	// if err != nil {
+	// 	tracer(TargetBuildFailed, err)
+	// 	ec.logError(progressLogger, prettyPrefix, err)
+	// 	if !ec.rs.Opts.runOpts.continueOnError {
+	// 		os.Exit(1)
+	// 	}
+	// }
 
-	// Create a logger
-	logger := log.New(writer, "", 0)
-	// Setup a streamer that we'll pipe cmd.Stdout to
-	logStreamerOut := logstreamer.NewLogstreamer(logger, prettyPrefix, false)
-	// Setup a streamer that we'll pipe cmd.Stderr to.
-	logStreamerErr := logstreamer.NewLogstreamer(logger, prettyPrefix, false)
-	cmd.Stderr = logStreamerErr
-	cmd.Stdout = logStreamerOut
-	// Flush/Reset any error we recorded
-	logStreamerErr.FlushRecord()
-	logStreamerOut.FlushRecord()
+	// // Create a logger
+	// logger := log.New(writer, "", 0)
+	// // Setup a streamer that we'll pipe cmd.Stdout to
+	// logStreamerOut := logstreamer.NewLogstreamer(logger, prettyPrefix, false)
+	// // Setup a streamer that we'll pipe cmd.Stderr to.
+	// logStreamerErr := logstreamer.NewLogstreamer(logger, prettyPrefix, false)
+	// cmd.Stderr = logStreamerErr
+	// cmd.Stdout = logStreamerOut
+	// // Flush/Reset any error we recorded
+	// logStreamerErr.FlushRecord()
+	// logStreamerOut.FlushRecord()
 
-	closeOutputs := func() error {
-		var closeErrors []error
+	// closeOutputs := func() error {
+	// 	var closeErrors []error
 
-		if err := logStreamerOut.Close(); err != nil {
-			closeErrors = append(closeErrors, errors.Wrap(err, "log stdout"))
-		}
-		if err := logStreamerErr.Close(); err != nil {
-			closeErrors = append(closeErrors, errors.Wrap(err, "log stderr"))
-		}
+	// 	if err := logStreamerOut.Close(); err != nil {
+	// 		closeErrors = append(closeErrors, errors.Wrap(err, "log stdout"))
+	// 	}
+	// 	if err := logStreamerErr.Close(); err != nil {
+	// 		closeErrors = append(closeErrors, errors.Wrap(err, "log stderr"))
+	// 	}
 
-		if err := writer.Close(); err != nil {
-			closeErrors = append(closeErrors, errors.Wrap(err, "log file"))
-		}
-		if len(closeErrors) > 0 {
-			msgs := make([]string, len(closeErrors))
-			for i, err := range closeErrors {
-				msgs[i] = err.Error()
-			}
-			return fmt.Errorf("could not flush log output: %v", strings.Join(msgs, ", "))
-		}
-		return nil
-	}
+	// 	if err := writer.Close(); err != nil {
+	// 		closeErrors = append(closeErrors, errors.Wrap(err, "log file"))
+	// 	}
+	// 	if len(closeErrors) > 0 {
+	// 		msgs := make([]string, len(closeErrors))
+	// 		for i, err := range closeErrors {
+	// 			msgs[i] = err.Error()
+	// 		}
+	// 		return fmt.Errorf("could not flush log output: %v", strings.Join(msgs, ", "))
+	// 	}
+	// 	return nil
+	// }
 
-	// Run the command
-	if err := ec.processes.Exec(cmd); err != nil {
-		// close off our outputs. We errored, so we mostly don't care if we fail to close
-		_ = closeOutputs()
-		// if we already know we're in the process of exiting,
-		// we don't need to record an error to that effect.
-		if errors.Is(err, process.ErrClosing) {
-			return nil
-		}
-		tracer(TargetBuildFailed, err)
-		progressLogger.Error(fmt.Sprintf("Error: command finished with error: %v", err))
-		if !ec.rs.Opts.runOpts.continueOnError {
-			prefixedUI.Error(fmt.Sprintf("ERROR: command finished with error: %s", err))
-			ec.processes.Close()
-		} else {
-			prefixedUI.Warn("command finished with error, but continuing...")
-		}
-		return err
-	}
+	// // Run the command
+	// if err := ec.processes.Exec(cmd); err != nil {
+	// 	// close off our outputs. We errored, so we mostly don't care if we fail to close
+	// 	_ = closeOutputs()
+	// 	// if we already know we're in the process of exiting,
+	// 	// we don't need to record an error to that effect.
+	// 	if errors.Is(err, process.ErrClosing) {
+	// 		return nil
+	// 	}
+	// 	tracer(TargetBuildFailed, err)
+	// 	progressLogger.Error(fmt.Sprintf("Error: command finished with error: %v", err))
+	// 	if !ec.rs.Opts.runOpts.continueOnError {
+	// 		prefixedUI.Error(fmt.Sprintf("ERROR: command finished with error: %s", err))
+	// 		ec.processes.Close()
+	// 	} else {
+	// 		prefixedUI.Warn("command finished with error, but continuing...")
+	// 	}
+	// 	return err
+	// }
 
 	duration := time.Since(cmdTime)
 	// Close off our outputs and cache them
-	if err := closeOutputs(); err != nil {
-		ec.logError(progressLogger, "", err)
-	} else {
-		if err = taskCache.SaveOutputs(ctx, progressLogger, prefixedUI, int(duration.Milliseconds())); err != nil {
-			ec.logError(progressLogger, "", fmt.Errorf("error caching output: %w", err))
-		}
+	// if err := closeOutputs(); err != nil {
+	// 	ec.logError(progressLogger, "", err)
+	// } else {
+	if err = taskCache.SaveOutputs(ctx, progressLogger, prefixedUI, int(duration.Milliseconds())); err != nil {
+		ec.logError(progressLogger, "", fmt.Errorf("error caching output: %w", err))
 	}
+	// }
 
 	// Clean up tracing
 	tracer(TargetBuilt, nil)

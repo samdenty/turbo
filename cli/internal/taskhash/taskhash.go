@@ -15,7 +15,6 @@ import (
 	"github.com/vercel/turborepo/cli/internal/doublestar"
 	"github.com/vercel/turborepo/cli/internal/env"
 	"github.com/vercel/turborepo/cli/internal/fs"
-	"github.com/vercel/turborepo/cli/internal/hashing"
 	"github.com/vercel/turborepo/cli/internal/inference"
 	"github.com/vercel/turborepo/cli/internal/nodes"
 	"github.com/vercel/turborepo/cli/internal/turbopath"
@@ -80,16 +79,9 @@ func safeCompileIgnoreFile(filepath string) (*gitignore.GitIgnore, error) {
 }
 
 func (pfs *packageFileSpec) hash(pkg *fs.PackageJSON, repoRoot turbopath.AbsoluteSystemPath) (string, error) {
-	hashObject, pkgDepsErr := hashing.GetPackageDeps(repoRoot, &hashing.PackageDepsOptions{
-		PackagePath:   pkg.Dir,
-		InputPatterns: pfs.inputs,
-	})
-	if pkgDepsErr != nil {
-		manualHashObject, err := manuallyHashPackage(pkg, pfs.inputs, repoRoot)
-		if err != nil {
-			return "", err
-		}
-		hashObject = manualHashObject
+	hashObject, err := manuallyHashPackage(pkg, pfs.inputs, repoRoot)
+	if err != nil {
+		return "", err
 	}
 	hashOfFiles, otherErr := fs.HashObject(hashObject)
 	if otherErr != nil {

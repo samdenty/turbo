@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
 
 	"github.com/pkg/errors"
 	"github.com/vercel/turborepo/cli/internal/client"
@@ -108,11 +107,11 @@ func (l *login) run(ctx context.Context) error {
 	loginURL := fmt.Sprintf("%v/turborepo/token?redirect_uri=%v", loginURLBase, redirectURL)
 	l.base.UI.Info(util.Sprintf(">>> Opening browser to %v", loginURL))
 
-	rootctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
-	defer cancel()
+	// rootctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
+	// defer cancel()
 
 	var query url.Values
-	oss, err := newOneShotServer(rootctx, func(w http.ResponseWriter, r *http.Request) {
+	oss, err := newOneShotServer(ctx, func(w http.ResponseWriter, r *http.Request) {
 		query = r.URL.Query()
 		http.Redirect(w, r, loginURLBase+"/turborepo/success", http.StatusFound)
 	}, defaultPort)
@@ -158,11 +157,8 @@ func (l *login) loginSSO(ctx context.Context, ssoTeam string) error {
 	query.Add("next", redirectURL)
 	loginURL := fmt.Sprintf("%v/api/auth/sso?%v", l.base.RepoConfig.LoginURL(), query.Encode())
 
-	rootctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
-	defer cancel()
-
 	var verificationToken string
-	oss, err := newOneShotServer(rootctx, func(w http.ResponseWriter, r *http.Request) {
+	oss, err := newOneShotServer(ctx, func(w http.ResponseWriter, r *http.Request) {
 		token, location := getTokenAndRedirect(r.URL.Query())
 		verificationToken = token
 		http.Redirect(w, r, location, http.StatusFound)

@@ -2,9 +2,7 @@ package signals
 
 import (
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 )
 
 // Watcher watches for signals delivered to this process and provides
@@ -48,7 +46,7 @@ func (w *Watcher) Done() <-chan struct{} {
 func NewWatcher() *Watcher {
 	// TODO: platform specific signals to watch for?
 	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	// signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 	w := &Watcher{
 		doneCh: make(chan struct{}),
 	}
