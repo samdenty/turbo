@@ -261,7 +261,9 @@ async fn get_contents(file: AssetContentVc) -> Result<Option<String>> {
     Ok(match &*file.await? {
         AssetContent::File(file) => match &*file.await? {
             FileContent::NotFound => None,
-            FileContent::Content(expected) => Some(trimmed_string(expected.content())),
+            FileContent::Content(expected) => {
+                Some(expected.content().to_string()?.trim().to_string())
+            }
         },
         AssetContent::Redirect { target, link_type } => Some(format!(
             "Redirect {{ target: {target}, link_type: {:?} }}",
@@ -307,10 +309,6 @@ async fn diff(
     }
 
     Ok(())
-}
-
-fn trimmed_string(input: &[u8]) -> String {
-    String::from_utf8_lossy(input).trim().to_string()
 }
 
 async fn maybe_load_env(
